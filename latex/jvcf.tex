@@ -16,27 +16,24 @@ multiple reference genomes.
 The format uses JavaScript Object Notation (JSON), a commonly used data
 format, and we thus call it JSON VCF or jVCF.
 
-\hypertarget{graph-restrictions}{%
-\subsubsection{Graph restrictions}\label{graph-restrictions}}
+\hypertarget{requirements}{%
+\subsection{Requirements}\label{requirements}}
 
-jVCF describes a specific type of genome graph which we call
-non-crossing, directed, acyclic graphs (NCDAGs). Consider a graph where
-sequence is stored in the nodes. Then three properties must hold:
+jVCF assumes:
 
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
+\begin{itemize}
 \tightlist
 \item
-  Edges are \emph{directed}, leading to nodes with higher position on
-  the genomic segment/chromosome.
+  Variant sites have been defined on the genome graph
 \item
-  There are no cycles in the graph, so the graph is \emph{acyclic}.
-\item
-  Variant sites are \emph{non-crossing}: two variant sites share a node
-  if and only if one site is entirely contained within the other.
-  Contained means all paths inside the contained variant site are also
-  paths in the containing site.
-\end{enumerate}
+  Variant sites can be contained in other variant sites. It is known
+  which sites are contained in which others.
+\end{itemize}
+
+For the latter point, a site contained in another occurs in a given
+sequence background. Each sequence background must be labeled with a
+unique positive integer, called its \textbf{haplogroup}. See this
+\protect\hyperlink{example}{toy graph} for an example.
 
 \hypertarget{description-of-json}{%
 \subsection{Description of JSON}\label{description-of-json}}
@@ -90,7 +87,7 @@ Here is a toy genome graph:
 In Figure \ref{toy_graph}, black nodes mark site entry and exit points.
 Each variant site is labeled by a unique positive integer ID, and each
 outgoing branch from the start of a variant site is labeled by a unique
-positive integer, called its \textbf{haplogroup}.
+positive integer (its haplogroup).
 
 Assume the ploidy is 1, and we are genotyping a sample whose genotyped
 path in the graph is the red line. The jVCF of this genotyped sample
@@ -157,11 +154,69 @@ would look like this:
 \hypertarget{specification}{%
 \section{Specification}\label{specification}}
 
-There are 7 required keys in jVCF, which can appear in any order. We
-list each of the required keys below, giving for each the type and
-description of its corresponding value.
+There are 7 required keys in jVCF, which can appear in any order. You
+can use extra keys beyond the required ones. We list each of the
+required keys below, giving for each the type and description of its
+corresponding value.
 
-Extra keys beyond these can be used.
+\hypertarget{site_fields}{%
+\subsection{Site\_Fields}\label{site_fields}}
+
+\begin{description}
+\item[Type]
+Object
+\item[Description]
+Each key describes the fields that can appear in
+\protect\hyperlink{site_obj}{Site objects}.
+\end{description}
+
+The following keys are required to be present:
+
+\begin{longtable}[]{@{}cc@{}}
+\toprule
+\begin{minipage}[b]{0.16\columnwidth}\centering
+Key\strut
+\end{minipage} & \begin{minipage}[b]{0.64\columnwidth}\centering
+Meaning\strut
+\end{minipage}\tabularnewline
+\midrule
+\endhead
+\begin{minipage}[t]{0.16\columnwidth}\centering
+ALS\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+Genotyped alleles at this site\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.16\columnwidth}\centering
+SEG\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+Segment (eg chromosome) on which the site lies\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.16\columnwidth}\centering
+POS\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+1-based position relative to haplogroup reference\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.16\columnwidth}\centering
+GT\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+Genotype calls\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.16\columnwidth}\centering
+HAPG\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+Haplogroup calls: haplogroup the called allele(s) lie on\strut
+\end{minipage}\tabularnewline
+\begin{minipage}[t]{0.16\columnwidth}\centering
+FT\strut
+\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
+Filters set\strut
+\end{minipage}\tabularnewline
+\bottomrule
+\end{longtable}
+
+Each key corresponds to an object with at least a ``Desc'' key which
+gives a description of the field. Extra keys beyond the required ones
+can be used.
 
 \hypertarget{sites}{%
 \subsection{Sites}\label{sites}}
@@ -176,8 +231,11 @@ Each element is a Site object
 \hypertarget{site_obj}{%
 \subsubsection{Site objects}\label{site_obj}}
 
-A Site object is like a data line in the VCF format. It describes
-variant calls at one site. The following keys are required:
+A Site object describes variant calls at one site. This is analogous to
+a record in VCF.
+
+As for \protect\hyperlink{site_fields}{Site\_Fields}, the following keys
+are required to be present:
 
 \begin{longtable}[]{@{}cc@{}}
 \toprule
@@ -226,11 +284,10 @@ Here is a more detailed explanation of the keys:
 \begin{itemize}
 \item
   \texttt{ALS}: does not need to store all possible alleles at the
-  variant site. It must store at least one allele which is the
-  `reference' for this site. The reference allele must be the allele
-  obtained by following haplogroup 0 from the start of the site to the
-  end of the site. All called alleles should also be present in
-  \texttt{ALS}.
+  variant site. It must store at least one allele which is the reference
+  for this site. The reference allele is the allele obtained by
+  following haplogroup 0 from the start of the site to the end of the
+  site. All called alleles should also be present in \texttt{ALS}.
 \item
   \texttt{SEG}: the name of the genomic segment the site lies on,
   e.g.~chromosome or the name of a reference genome.
@@ -264,70 +321,9 @@ Here is a more detailed explanation of the keys:
   and the second the filters set for that sample.
 \end{itemize}
 
-You can, of course, use more keys. For each used key,
+You can use more keys. For each used key,
 \protect\hyperlink{site_fields}{Site\_Fields} needs to provide a
-description of its meaning. The required keys here must be present in
-\protect\hyperlink{site_fields}{Site\_Fields}.
-
-\hypertarget{site_fields}{%
-\subsection{Site\_Fields}\label{site_fields}}
-
-\begin{description}
-\item[Type]
-Object
-\item[Description]
-Each entry describes the fields that can appear in
-\protect\hyperlink{site_obj}{Site objects}.
-\end{description}
-
-For each key which appears in \protect\hyperlink{site_obj}{Site
-objects}, a corresponding key must be present here. The following keys
-are required to be present:
-
-\begin{longtable}[]{@{}cc@{}}
-\toprule
-\begin{minipage}[b]{0.16\columnwidth}\centering
-Key\strut
-\end{minipage} & \begin{minipage}[b]{0.64\columnwidth}\centering
-Meaning\strut
-\end{minipage}\tabularnewline
-\midrule
-\endhead
-\begin{minipage}[t]{0.16\columnwidth}\centering
-ALS\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-Genotyped alleles at this site\strut
-\end{minipage}\tabularnewline
-\begin{minipage}[t]{0.16\columnwidth}\centering
-SEG\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-Segment (eg chromosome) on which the site lies\strut
-\end{minipage}\tabularnewline
-\begin{minipage}[t]{0.16\columnwidth}\centering
-POS\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-1-based position relative to haplogroup reference\strut
-\end{minipage}\tabularnewline
-\begin{minipage}[t]{0.16\columnwidth}\centering
-GT\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-Genotype calls\strut
-\end{minipage}\tabularnewline
-\begin{minipage}[t]{0.16\columnwidth}\centering
-HAPG\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-Haplogroup calls: haplogroup the called allele(s) lie on\strut
-\end{minipage}\tabularnewline
-\begin{minipage}[t]{0.16\columnwidth}\centering
-FT\strut
-\end{minipage} & \begin{minipage}[t]{0.64\columnwidth}\centering
-Filters set\strut
-\end{minipage}\tabularnewline
-\bottomrule
-\end{longtable}
-
-Each key corresponds to an object with at least a ``Desc'' key which
-gives a description of the field.
+description of its meaning.
 
 \hypertarget{samples}{%
 \subsection{Samples}\label{samples}}

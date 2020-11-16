@@ -22,15 +22,27 @@ which are graph structures representing genetic variants occurring on potentiall
 The format uses JavaScript Object Notation (JSON), a commonly used data format, and we thus call
 it JSON VCF or jVCF.
 
-### Graph restrictions
-jVCF describes a specific type of genome graph which we call non-crossing, directed, acyclic graphs (NCDAGs).
-Consider a graph where sequence is stored in the nodes. Then three properties must hold:
+## Requirements
+jVCF assumes:
 
-1. Edges are *directed*, leading to nodes with higher position on the genomic segment/chromosome.
-1. There are no cycles in the graph, so the graph is *acyclic*.
-1. Variant sites are *non-crossing*: two variant sites share a node if and only if one site is entirely contained
-  within the other. Contained means all paths inside the contained variant site are also paths in the containing site.
+* Variant sites have been defined on the genome graph
+* Variant sites can be contained in other variant sites. It is known which sites
+  are contained in which others.
 
+For the latter point, a site contained in another occurs in a given sequence background.
+Each sequence background must be labeled with a unique positive integer, called its **haplogroup**.
+See this [toy graph](#example) for an example.
+  
+<!-- 
+jVCF places no requirements on genome graph representation. However it was originally designed 
+for [gramtools](https://github.com/iqbal-lab-org/gramtools), which works on nested directed acyclic genome graphs:
+
+1. Edges are *directed*, moving along a genomic segment.
+1. The graph is *acyclic*, it has no cycles.
+1. Variant sites, when contained in others, are fully *nested*: two variant sites 
+   share a node if and only if one site is entirely contained within the other. 
+   Contained means all paths inside the contained variant site are also paths in the containing site.
+-->
 
 ## Description of JSON
 The JSON format is defined here: <https://www.json.org/json-en.html>.
@@ -49,9 +61,10 @@ In objects and arrays, values can be:
 * an array 
 * an object
 
+
 \newpage
 
-# Example
+# Example {#example}
 
 Here is a toy genome graph:
 
@@ -59,7 +72,7 @@ Here is a toy genome graph:
 
 In Figure \ref{toy_graph}, black nodes mark site entry and exit points.
 Each variant site is labeled by a unique positive integer ID, and each outgoing branch from the 
-start of a variant site is labeled by a unique positive integer, called its **haplogroup**.
+start of a variant site is labeled by a unique positive integer (its haplogroup).
 
 Assume the ploidy is 1, and we are genotyping a sample whose genotyped path in the graph
 is the red line.  The jVCF of this genotyped sample would look like this:
@@ -124,64 +137,8 @@ is the red line.  The jVCF of this genotyped sample would look like this:
 
 # Specification
 
-There are 7 required keys in jVCF, which can appear in any order.
+There are 7 required keys in jVCF, which can appear in any order. You can use extra keys beyond the required ones.
 We list each of the required keys below, giving for each the type and description of its corresponding value.
-
-Extra keys beyond these can be used.
-
-## Sites
-
-Type
-
-:   Array
-
-Description
-
-:   Each element is a Site object
-
-### Site objects {#site_obj}
-
-A Site object is like a data line in the VCF format. It describes variant calls at one site.
-The following keys are required:
-
--------------------------------------------------------------
- Key                    Value Type           
------------ ------------------------------------------------
-  ALS           Array of strings
-
-  SEG           String
-
-  POS           Number
-
-  GT            Array of array of numbers, 'null' or empty
-
-  HAPG          Array of array of numbers or empty
-
-  FT            Array of arrays of strings or empty
--------------------------------------------------------------
- 
-Here is a more detailed explanation of the keys:
-
-* ``ALS``: does not need to store all possible alleles at the variant site. It must
-    store at least one allele which is the 'reference' for this site. The reference allele
-    must be the allele obtained by following haplogroup 0 from the start of the site
-    to the end of the site. All called alleles should also be present in ``ALS``.
-* ``SEG``: the name of the genomic segment the site lies on, e.g. chromosome or the
-    name of a reference genome.
-* ``POS``: 1-based position, offset from the last non-nested site (see [Lvl1_Sites]).
-    The position of sites contained in other sites is expressed relative to the reference path
-    through the containing site, which is obtained by following haplogroup 0.
-* ``GT`` and ``HAPG``: are arrays of arrays. The two array levels are:
-    1. Samples. This should have the same size as the array in [Samples]. 
-    2. Ploidy. This should have one entry per chromosome copy, or chromosome population (eg tumour subclones or mixed infections).
-
-    For example, to access the first sample's genotype calls at a site, you access the 0th element of the ``GT`` array. 
-    If you have a diploid genotyped sample, the first and second chromosome calls are the 0th and 1st elements of that array.
-
-* ``FT``: also an array of arrays. The first level is the samples, and the second the filters set for that sample.
-
-You can, of course, use more keys. For each used key, [Site_Fields] needs to provide a description of its meaning. 
-The required keys here must be present in [Site_Fields].
 
 ## Site_Fields
 
@@ -191,9 +148,8 @@ Type
 
 Description
 
-:   Each entry describes the fields that can appear in [Site objects](#site_obj).
+:   Each key describes the fields that can appear in [Site objects](#site_obj).
 
-For each key which appears in [Site objects](#site_obj), a corresponding key must be present here.
 The following keys are required to be present:
 
 -------------------------------------------------------------
@@ -216,6 +172,62 @@ The following keys are required to be present:
 -------------------------------------------------------------
 
 Each key corresponds to an object with at least a "Desc" key which gives a description of the field.
+Extra keys beyond the required ones can be used.
+
+
+## Sites
+
+Type
+
+:   Array
+
+Description
+
+:   Each element is a Site object
+
+### Site objects {#site_obj}
+
+A Site object describes variant calls at one site. This is analogous to a record in VCF.
+
+As for [Site_Fields], the following keys are required to be present:
+
+-------------------------------------------------------------
+ Key                    Value Type           
+----------- ------------------------------------------------
+  ALS           Array of strings
+
+  SEG           String
+
+  POS           Number
+
+  GT            Array of array of numbers, 'null' or empty
+
+  HAPG          Array of array of numbers or empty
+
+  FT            Array of arrays of strings or empty
+-------------------------------------------------------------
+ 
+Here is a more detailed explanation of the keys:
+
+* ``ALS``: does not need to store all possible alleles at the variant site. It must
+    store at least one allele which is the reference for this site. The reference allele
+    is the allele obtained by following haplogroup 0 from the start of the site
+    to the end of the site. All called alleles should also be present in ``ALS``.
+* ``SEG``: the name of the genomic segment the site lies on, e.g. chromosome or the
+    name of a reference genome.
+* ``POS``: 1-based position, offset from the last non-nested site (see [Lvl1_Sites]).
+    The position of sites contained in other sites is expressed relative to the reference path
+    through the containing site, which is obtained by following haplogroup 0.
+* ``GT`` and ``HAPG``: are arrays of arrays. The two array levels are:
+    1. Samples. This should have the same size as the array in [Samples]. 
+    2. Ploidy. This should have one entry per chromosome copy, or chromosome population (eg tumour subclones or mixed infections).
+
+    For example, to access the first sample's genotype calls at a site, you access the 0th element of the ``GT`` array. 
+    If you have a diploid genotyped sample, the first and second chromosome calls are the 0th and 1st elements of that array.
+
+* ``FT``: also an array of arrays. The first level is the samples, and the second the filters set for that sample.
+
+You can use more keys. For each used key, [Site_Fields] needs to provide a description of its meaning. 
 
 ## Samples
 
